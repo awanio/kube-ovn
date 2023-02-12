@@ -2,7 +2,7 @@ SHELL = /bin/bash
 
 include Makefile.e2e
 
-REGISTRY = kubeovn
+REGISTRY = r.awan.app/library/kube-ovn
 DEV_TAG = dev
 RELEASE_TAG = $(shell cat VERSION)
 VERSION = $(shell echo $${VERSION:-$(RELEASE_TAG)})
@@ -46,6 +46,11 @@ build-go-arm:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-cmd -ldflags $(GOLDFLAGS) -v ./cmd
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-webhook -ldflags $(GOLDFLAGS) -v ./cmd/webhook
 
+.PHONY: build-go-ppc64le
+build-go-ppc64le:
+	CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-cmd -ldflags $(GOLDFLAGS) -v ./cmd
+	CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-webhook -ldflags $(GOLDFLAGS) -v ./cmd/webhook
+
 .PHONY: build-dev
 build-dev: build-go
 	docker build --build-arg ARCH=amd64 -t $(REGISTRY)/kube-ovn:$(DEV_TAG) -f dist/images/Dockerfile dist/images/
@@ -66,6 +71,10 @@ base-amd64-dpdk:
 .PHONY: base-arm64
 base-arm64:
 	docker buildx build --platform linux/arm64 --build-arg ARCH=arm64 -t $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-arm64 -o type=docker -f dist/images/Dockerfile.base dist/images/
+
+.PHONY: base-ppc64le
+base-ppc64le:
+	docker buildx build --platform linux/ppc64le --build-arg ARCH=ppc64le -t $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-ppc64le -o type=docker -f dist/images/Dockerfile.base dist/images/
 
 .PHONY: image-kube-ovn
 image-kube-ovn: build-go
@@ -97,6 +106,11 @@ release: lint image-kube-ovn image-vpc-nat-gateway image-centos-compile
 release-arm: build-go-arm
 	docker buildx build --platform linux/arm64 --build-arg ARCH=arm64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
 	docker buildx build --platform linux/arm64 --build-arg ARCH=arm64 -t $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o type=docker -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
+
+.PHONY: release-ppc64le
+release-ppc64le: build-go-ppc64le
+	docker buildx build --platform linux/ppc64le --build-arg ARCH=ppc64le -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build --platform linux/ppc64le --build-arg ARCH=ppc64le -t $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o type=docker -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
 
 .PHONY: push-dev
 push-dev:
